@@ -27,6 +27,10 @@ class API:
     def __init__(self, session: aiohttp.ClientSession):
         self.session = session
 
+    @classmethod
+    def create(cls, session: aiohttp.ClientSession):
+        return cls(session)
+
     @staticmethod
     def get_bs(text: bytes) -> BeautifulSoup:
         return BeautifulSoup(text.decode('utf-8'), "html5lib")

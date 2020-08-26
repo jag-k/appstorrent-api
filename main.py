@@ -14,7 +14,7 @@ app.api: API
 
 @app.listener('before_server_start')
 def init(application, loop):
-    application.api = API(aiohttp.ClientSession(loop=loop))
+    application.api = API.create(aiohttp.ClientSession(loop=loop))
     application.api.generate_filter()
 
 
@@ -26,12 +26,12 @@ def finish(application, loop):
 
 @app.route("/games")
 async def games(request: Request):
-    return json(await app.api.get_data("games"))
+    return json(await request.app.api.get_data("games"))
 
 
 @app.route("/programs")
 async def programs(request: Request):
-    return json(await app.api.get_data("programs"))
+    return json(await request.app.api.get_data("programs"))
 
 
 @app.route("/")
