@@ -13,12 +13,9 @@ app.api: API
 
 
 @app.listener('before_server_start')
-def init(application, **kwargs):
-    application.api = API.create(aiohttp.ClientSession(**kwargs))
+def init(application, loop):
+    application.api = API.create(aiohttp.ClientSession(loop=loop))
     application.api.generate_filter()
-
-
-init(app)
 
 
 @app.listener('after_server_stop')
@@ -46,6 +43,7 @@ async def func(request: Request):
         "query_string": request.query_string,
         "args": request.args,
         "query_args": request.query_args,
+        "listeners": dict(map(lambda i: (i[0], list(map(repr, i[1]))), app.listeners.items())),
     }, indent=2, ensure_ascii=False), content_type="application/json")
 
 
