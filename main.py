@@ -12,16 +12,19 @@ GET_POST = frozenset({"GET", "POST"})
 app.api: API
 
 
-@app.listener('before_server_start')
-def init(application, loop):
-    app.api = API.create(aiohttp.ClientSession(loop=loop))
-    app.api.generate_filter()
+@app.middleware('request')
+def init(request: Request):
+    print("check API")
+    if not getattr(app, "api", None):
+        print("API")
+        app.api = API.create(aiohttp.ClientSession(loop=request.app.loop))
+        app.api.generate_filter()
 
 
-@app.listener('after_server_stop')
-def finish(application, loop):
-    loop.run_until_complete(application.api.session.close())
-    loop.close()
+# @app.listener('after_server_stop')
+# def finish(application, loop):
+#     loop.run_until_complete(application.api.session.close())
+#     loop.close()
 
 
 @app.route("/games")
