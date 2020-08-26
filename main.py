@@ -13,9 +13,12 @@ app.api: API
 
 
 @app.listener('before_server_start')
-def init(application, loop):
-    application.api = API.create(aiohttp.ClientSession(loop=loop))
+def init(application, **kwargs):
+    application.api = API.create(aiohttp.ClientSession(**kwargs))
     application.api.generate_filter()
+
+
+init(app)
 
 
 @app.listener('after_server_stop')
