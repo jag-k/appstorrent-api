@@ -1,0 +1,4 @@
+sanic~=20.3.0
+beautifulsoup4~=4.9.1
+aiohttp~=3.6.2
+html5lib~=1.1
