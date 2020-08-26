@@ -1,7 +1,7 @@
 import asyncio
 from json import dumps
 from os.path import join
-from typing import Tuple, Union, Callable
+from typing import Tuple, Union, Callable, Coroutine
 
 import aiohttp
 from bs4 import BeautifulSoup, Tag
@@ -11,12 +11,12 @@ BASE_URL = "https://www.appstorrent.ru"
 
 DEFAULT_SORT = ""
 
+_loop = asyncio.get_event_loop()
 
-def pprint(item):
-    try:
-        print(dumps(item, ensure_ascii=False, indent=2))
-    except TypeError:
-        print(item)
+
+def run(coroutine: Coroutine):
+    res = _loop.run_until_complete(coroutine)
+    return res
 
 
 class API:
@@ -24,27 +24,24 @@ class API:
     NAVIGATIONS_DICT = None
     FILTER = {}
 
-    def __init__(self, session: aiohttp.ClientSession):
-        self.session = session
-
-    @classmethod
-    def create(cls, session: aiohttp.ClientSession):
-        return cls(session)
-
     @staticmethod
     def get_bs(text: bytes) -> BeautifulSoup:
         return BeautifulSoup(text.decode('utf-8'), "html5lib")
 
-    async def get_response(self, url: str, **kwargs) -> bytes:
-        async with self.session.get(url, verify_ssl=False, **kwargs) as resp:
-            return await resp.read()
+    @staticmethod
+    async def get_response(url: str, **kwargs) -> bytes:
+        async with aiohttp.ClientSession(**kwargs) as session:
+            async with session.get(url, verify_ssl=False, **kwargs) as resp:
+                return await resp.read()
 
-    async def get_bs_data(self, url: str, **kwargs) -> BeautifulSoup:
-        return API.get_bs(await self.get_response(url, **kwargs))
+    @staticmethod
+    async def get_bs_data(url: str, **kwargs) -> BeautifulSoup:
+        return API.get_bs(await API.get_response(url, **kwargs))
 
-    async def get_navigation(self, bs: BeautifulSoup = None) -> Tuple[list, dict]:
+    @staticmethod
+    async def get_navigation(bs: BeautifulSoup = None) -> Tuple[list, dict]:
         if type(bs) is not BeautifulSoup:
-            bs = await self.get_bs_data(BASE_URL)
+            bs = await API.get_bs_data(BASE_URL)
 
         navigations = []
         navigations_dict = {}
@@ -61,8 +58,8 @@ class API:
                 navigations_dict[href] = int(count)
         return navigations, navigations_dict
 
+    @staticmethod
     async def get_data(
-            self,
             _type: str = None,
             category: str = None,
             sorting: Union[str, int] = None,
@@ -71,7 +68,7 @@ class API:
         if _type not in API.FILTER:
             return {}
 
-        bs = await self.get_bs_data(join(BASE_URL, _type))
+        bs = await API.get_bs_data(join(BASE_URL, _type))
 
         categories = {
             s.get("value").strip('/').rsplit('/', 1)[-1]: s.text
@@ -113,13 +110,14 @@ class API:
             }
         }
 
-    def constructor(self, name: str, attrs: dict, selector_func: Callable, _href: str = '') -> Callable:
+    @staticmethod
+    def constructor(name: str, attrs: dict, selector_func: Callable, _href: str = '') -> Callable:
         async def dec(category=CATEGORY, href=_href, percents=False, **kwargs):
             res = []
             url = join(BASE_URL, href, category, "page/%s")
             page_number = 1
 
-            bs = await self.get_bs_data(url % page_number, cookies={
+            bs = await API.get_bs_data(url % page_number, cookies={
                 "remember_select": kwargs.get("sorting", DEFAULT_SORT)
             })
 
@@ -127,7 +125,7 @@ class API:
                 total_count = API.NAVIGATIONS_DICT[href]
 
             except TypeError:
-                API.NAVIGATIONS, API.NAVIGATIONS_DICT = await self.get_navigation(bs)
+                API.NAVIGATIONS, API.NAVIGATIONS_DICT = await API.get_navigation(bs)
                 total_count = API.NAVIGATIONS_DICT[href]
 
             while True:
@@ -149,15 +147,16 @@ class API:
                     return res
 
                 page_number += 1
-                bs = await self.get_bs_data(url % page_number, cookies={
+                bs = await API.get_bs_data(url % page_number, cookies={
                     "remember_select": kwargs.get("sorting", DEFAULT_SORT)
                 })
 
         return dec
 
-    def generate_filter(self):
+    @staticmethod
+    def generate_filter():
         API.FILTER = {
-            "programs": self.constructor(
+            "programs": API.constructor(
                 'a',
                 {"class": "pr-itema"},
                 lambda a: {
@@ -170,7 +169,7 @@ class API:
                 },
                 "programs"
             ),
-            "games": self.constructor(
+            "games": API.constructor(
                 "li",
                 {"class": "games-item"},
                 lambda li: {
@@ -187,22 +186,19 @@ class API:
             )
         }
 
+        API.NAVIGATIONS, API.NAVIGATIONS_DICT = run(API.get_navigation())
+
+
+API.generate_filter()
+
 
 async def main():
-    print("Init")
-    async with aiohttp.ClientSession() as session:
-        api = API(session)
-        api.generate_filter()
-        API.NAVIGATIONS, API.NAVIGATIONS_DICT = (await api.get_navigation())
-        print("Start")
-        print(dumps(
-            await api.get_data("games"),
-            ensure_ascii=False,
-            indent=2
-        ))
+    print(dumps(
+        await API.get_data("games"),
+        ensure_ascii=False,
+        indent=2
+    ))
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    sites_soup = loop.run_until_complete(main())
-    print(sites_soup)
-    loop.close()
+    r = run(main())
+    print(r)

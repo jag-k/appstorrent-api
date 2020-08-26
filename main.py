@@ -9,17 +9,6 @@ from appstorrent_api import API, BASE_URL
 app = Sanic(__name__)
 POST = frozenset({"POST"})
 GET_POST = frozenset({"GET", "POST"})
-app.api: API
-
-
-@app.middleware('request')
-def init(request: Request):
-    print("check API")
-    if not getattr(app, "api", None):
-        print("API")
-        app.api = API.create(aiohttp.ClientSession(loop=request.app.loop))
-        app.api.generate_filter()
-
 
 # @app.listener('after_server_stop')
 # def finish(application, loop):
@@ -29,12 +18,12 @@ def init(request: Request):
 
 @app.route("/games")
 async def games(request: Request):
-    return json(await request.app.api.get_data("games"))
+    return json(await API.get_data("games"))
 
 
 @app.route("/programs")
 async def programs(request: Request):
-    return json(await request.app.api.get_data("programs"))
+    return json(await API.get_data("programs"))
 
 
 @app.route("/")
