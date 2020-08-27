@@ -26,7 +26,7 @@ class API:
 
     @staticmethod
     def get_bs(text: bytes) -> BeautifulSoup:
-        return BeautifulSoup(text.decode('utf-8'), "html5lib")
+        return BeautifulSoup(text.decode('utf-8'), "lxml")
 
     @staticmethod
     async def get_response(url: str, **kwargs) -> bytes:
